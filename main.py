@@ -1,6 +1,5 @@
 import json
 from json import JSONDecodeError
-from typing import Optional
 
 from analizador import analizar_instagram, analizar_web
 from fastapi import FastAPI, HTTPException, Request
@@ -27,8 +26,11 @@ app.add_middleware(
 
 class AuditoriaRequest(BaseModel):
     url: str
-    instagram: Optional[str] = None
+    instagram: str = ""
     email: EmailStr
+    frecuencia: str
+    estrategia: str
+    reto: str
 
     @field_validator("url")
     @classmethod
@@ -39,11 +41,15 @@ class AuditoriaRequest(BaseModel):
 
     @field_validator("instagram")
     @classmethod
-    def limpiar_instagram(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return None
-        limpio = value.strip()
-        return limpio or None
+    def limpiar_instagram(cls, value: str) -> str:
+        return value.strip() if value else ""
+
+    @field_validator("frecuencia", "estrategia", "reto")
+    @classmethod
+    def validar_pregunta_estrategica(cls, value: str) -> str:
+        if not value or not value.strip():
+            raise ValueError("Las preguntas estratégicas son obligatorias")
+        return value.strip()
 
 
 @app.get("/")
@@ -64,6 +70,15 @@ async def auditar(request: Request):
     except ValidationError as exc:
         raise HTTPException(status_code=400, detail="Datos inválidos") from exc
 
+    datos_formulario = {
+        "url": datos.url,
+        "instagram": datos.instagram,
+        "email": str(datos.email),
+        "frecuencia": datos.frecuencia,
+        "estrategia": datos.estrategia,
+        "reto": datos.reto,
+    }
+
     try:
         datos_web = analizar_web(datos.url)
     except Exception as exc:
@@ -74,10 +89,18 @@ async def auditar(request: Request):
     except Exception as exc:
         datos_ig = {"analizado": False, "error": f"Error inesperado en análisis de Instagram: {exc}"}
 
+    datos_diagnostico = {
+        "formulario": datos_formulario,
+        "web": datos_web,
+        "instagram": datos_ig,
+    }
+
+    print("DATOS FORMULARIO:")
+    print(json.dumps(datos_formulario, indent=2, ensure_ascii=False))
     print("ANÁLISIS WEB:")
-    print(json.dumps(datos_web, indent=2, ensure_ascii=False))
+    print(json.dumps(datos_diagnostico["web"], indent=2, ensure_ascii=False))
     print("ANÁLISIS INSTAGRAM:")
-    print(json.dumps(datos_ig, indent=2, ensure_ascii=False))
+    print(json.dumps(datos_diagnostico["instagram"], indent=2, ensure_ascii=False))
 
     return JSONResponse(
         {

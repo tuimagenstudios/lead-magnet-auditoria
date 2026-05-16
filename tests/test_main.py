@@ -3,6 +3,8 @@ import json
 import unittest
 from unittest.mock import patch
 
+from fastapi import HTTPException
+
 from main import auditar
 
 
@@ -21,6 +23,9 @@ class AuditarEndpointTests(unittest.TestCase):
                 "url": "https://tuimagenstudios.com",
                 "instagram": "@tuimagen_studio",
                 "email": "test@test.com",
+                "frecuencia": "semanal_alta",
+                "estrategia": "parcial",
+                "reto": "ventas",
             }
         )
 
@@ -37,6 +42,23 @@ class AuditarEndpointTests(unittest.TestCase):
         self.assertEqual(body["preview"], {"web_ok": True, "ig_ok": True})
         analizar_web.assert_called_once_with("https://tuimagenstudios.com")
         analizar_ig.assert_called_once_with("@tuimagen_studio")
+
+    def test_auditar_rechaza_si_faltan_preguntas_estrategicas(self):
+        request = FakeRequest(
+            {
+                "url": "https://tuimagenstudios.com",
+                "instagram": "@tuimagen_studio",
+                "email": "test@test.com",
+                "frecuencia": "semanal_alta",
+                "estrategia": "",
+                "reto": "ventas",
+            }
+        )
+
+        with self.assertRaises(HTTPException) as context:
+            asyncio.run(auditar(request))
+
+        self.assertEqual(context.exception.status_code, 400)
 
 
 if __name__ == "__main__":

@@ -96,7 +96,7 @@
       font-weight: 600;
     }
 
-    input {
+    input:not([type="radio"]) {
       width: 100%;
       min-height: 54px;
       border: 1px solid var(--line);
@@ -109,14 +109,101 @@
       transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
     }
 
-    input::placeholder {
+    input:not([type="radio"])::placeholder {
       color: rgba(168, 179, 207, 0.58);
     }
 
-    input:focus {
+    input:not([type="radio"]):focus {
       border-color: var(--cyan);
       box-shadow: 0 0 0 4px rgba(0, 224, 255, 0.12);
       background: #0d1531;
+    }
+
+    .strategic-section {
+      margin-top: 2rem;
+      display: grid;
+      gap: 18px;
+    }
+
+    .strategic-title {
+      margin: 0 0 1rem;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .question-group {
+      margin: 0;
+      padding: 0;
+      border: 0;
+      display: grid;
+      gap: 10px;
+    }
+
+    .question-label {
+      margin-bottom: 2px;
+      color: var(--text);
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    .radio-options {
+      display: grid;
+      gap: 8px;
+    }
+
+    .radio-option {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 46px;
+      padding: 12px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      color: rgba(255, 255, 255, 0.88);
+      background: rgba(255, 255, 255, 0.05);
+      font-size: 0.94rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+    }
+
+    .radio-option:hover {
+      border-color: rgba(0, 224, 255, 0.32);
+      background: rgba(255, 255, 255, 0.07);
+    }
+
+    .radio-option:has(input:checked) {
+      border-color: var(--cyan);
+      background: rgba(0, 224, 255, 0.08);
+      color: var(--text);
+    }
+
+    .radio-option:has(input:focus-visible) {
+      box-shadow: 0 0 0 4px rgba(0, 224, 255, 0.12);
+    }
+
+    .radio-option input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .radio-dot {
+      width: 14px;
+      height: 14px;
+      flex: 0 0 14px;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 999px;
+      background: rgba(5, 9, 26, 0.72);
+      box-shadow: inset 0 0 0 4px rgba(5, 9, 26, 0.72);
+      transition: border-color 160ms ease, background 160ms ease;
+    }
+
+    .radio-option:has(input:checked) .radio-dot {
+      border-color: var(--cyan);
+      background: var(--cyan);
     }
 
     button {
@@ -196,6 +283,98 @@
           <input id="email" name="email" type="email" placeholder="hola@tumarca.com" required>
         </label>
 
+        <section class="strategic-section" aria-labelledby="strategic-title">
+          <h2 id="strategic-title" class="strategic-title">Contanos un poco más</h2>
+
+          <fieldset class="question-group">
+            <legend class="question-label">¿Cada cuánto publicás en tus redes?</legend>
+            <div class="radio-options">
+              <label class="radio-option">
+                <input type="radio" name="frecuencia" value="diaria" required>
+                <span class="radio-dot" aria-hidden="true"></span>
+                <span>Diariamente o casi</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="frecuencia" value="semanal_alta">
+                <span class="radio-dot" aria-hidden="true"></span>
+                <span>Algunas veces por semana</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="frecuencia" value="semanal">
+                <span class="radio-dot" aria-hidden="true"></span>
+                <span>Una vez por semana</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="frecuencia" value="esporadica">
+                <span class="radio-dot" aria-hidden="true"></span>
+                <span>Esporádicamente</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="frecuencia" value="nula">
+                <span class="radio-dot" aria-hidden="true"></span>
+                <span>Casi nunca</span>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset class="question-group">
+            <legend class="question-label">¿Tenés plan de contenido?</legend>
+            <div class="radio-options">
+              <label class="radio-option">
+                <input type="radio" name="estrategia" value="con_plan" required>
+                <span class="radio-dot" aria-hidden="true"></span>
+                <span>Sí, sigo un calendario</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="estrategia" value="parcial">
+                <span class="radio-dot" aria-hidden="true"></span>
+                <span>Idea general pero improviso</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="estrategia" value="improvisado">
+                <span class="radio-dot" aria-hidden="true"></span>
+                <span>Publico cuando se me ocurre</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="estrategia" value="sin_plan">
+                <span class="radio-dot" aria-hidden="true"></span>
+                <span>No tengo nada armado</span>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset class="question-group">
+            <legend class="question-label">¿Cuál es tu mayor reto digital ahora?</legend>
+            <div class="radio-options">
+              <label class="radio-option">
+                <input type="radio" name="reto" value="ventas" required>
+                <span class="radio-dot" aria-hidden="true"></span>
+                <span>Generar más ventas / clientes</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="reto" value="audiencia">
+                <span class="radio-dot" aria-hidden="true"></span>
+                <span>Crecer en audiencia</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="reto" value="tiempo">
+                <span class="radio-dot" aria-hidden="true"></span>
+                <span>Falta de tiempo para contenido</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="reto" value="ideas">
+                <span class="radio-dot" aria-hidden="true"></span>
+                <span>No sé qué publicar</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="reto" value="marca">
+                <span class="radio-dot" aria-hidden="true"></span>
+                <span>Mi marca se ve poco profesional</span>
+              </label>
+            </div>
+          </fieldset>
+        </section>
+
         <button id="submit-button" type="submit">Quiero mi auditoría gratis →</button>
         <p id="message" class="message" role="status" aria-live="polite"></p>
       </form>
@@ -212,6 +391,11 @@
       message.className = `message ${type || ""}`.trim();
     };
 
+    const getRadioValue = (name) => {
+      const selected = form.querySelector(`input[name="${name}"]:checked`);
+      return selected ? selected.value : "";
+    };
+
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       setMessage("", "");
@@ -219,11 +403,19 @@
       const data = {
         url: form.url.value.trim(),
         instagram: form.instagram.value.trim(),
-        email: form.email.value.trim()
+        email: form.email.value.trim(),
+        frecuencia: getRadioValue("frecuencia"),
+        estrategia: getRadioValue("estrategia"),
+        reto: getRadioValue("reto")
       };
 
       if (!data.url || !data.email || !form.email.validity.valid) {
         setMessage("Revisá la URL y el email antes de enviar.", "error");
+        return;
+      }
+
+      if (!data.frecuencia || !data.estrategia || !data.reto) {
+        setMessage("Por favor respondé las 3 preguntas.", "error");
         return;
       }
 
