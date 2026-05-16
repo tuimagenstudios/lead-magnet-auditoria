@@ -26,6 +26,10 @@ app.add_middleware(
 )
 
 
+def trace(message: str) -> None:
+    print(message, flush=True)
+
+
 class AuditoriaRequest(BaseModel):
     url: Optional[str] = None
     instagram: str = ""
@@ -66,6 +70,8 @@ async def formulario(request: Request):
 
 @app.post("/auditar")
 async def auditar(request: Request):
+    trace(">> Petición recibida")
+
     try:
         payload = await request.json()
     except JSONDecodeError as exc:
@@ -89,16 +95,20 @@ async def auditar(request: Request):
     }
 
     datos_web = {"analizado": False}
+    trace(">> Analizando web...")
     if datos.url:
         try:
             datos_web = analizar_web(datos.url)
         except Exception as exc:
             datos_web = {"error": f"Error inesperado en análisis web: {exc}"}
+    trace(">> Web OK")
 
+    trace(">> Analizando Instagram...")
     try:
         datos_ig = analizar_instagram(datos.instagram or "")
     except Exception as exc:
         datos_ig = {"analizado": False, "error": f"Error inesperado en análisis de Instagram: {exc}"}
+    trace(">> Instagram OK")
 
     datos_diagnostico = {
         "formulario": datos_formulario,
@@ -106,13 +116,14 @@ async def auditar(request: Request):
         "instagram": datos_ig,
     }
 
-    print("DATOS FORMULARIO:")
-    print(json.dumps(datos_formulario, indent=2, ensure_ascii=False))
-    print("ANÁLISIS WEB:")
-    print(json.dumps(datos_diagnostico["web"], indent=2, ensure_ascii=False))
-    print("ANÁLISIS INSTAGRAM:")
-    print(json.dumps(datos_diagnostico["instagram"], indent=2, ensure_ascii=False))
+    print("DATOS FORMULARIO:", flush=True)
+    print(json.dumps(datos_formulario, indent=2, ensure_ascii=False), flush=True)
+    print("ANÁLISIS WEB:", flush=True)
+    print(json.dumps(datos_diagnostico["web"], indent=2, ensure_ascii=False), flush=True)
+    print("ANÁLISIS INSTAGRAM:", flush=True)
+    print(json.dumps(datos_diagnostico["instagram"], indent=2, ensure_ascii=False), flush=True)
 
+    trace(">> Llamando a Gemini...")
     try:
         diagnostico = generar_diagnostico(
             {
@@ -128,9 +139,11 @@ async def auditar(request: Request):
         )
     except Exception as exc:
         diagnostico = {"error": "Diagnóstico no generado", "detalle": str(exc)}
+    trace(">> Diagnóstico generado")
 
-    print("DIAGNÓSTICO:")
-    print(json.dumps(diagnostico, indent=2, ensure_ascii=False))
+    print("DIAGNÓSTICO:", flush=True)
+    print(json.dumps(diagnostico, indent=2, ensure_ascii=False), flush=True)
+    trace(">> Respondiendo al cliente")
 
     return JSONResponse(
         {

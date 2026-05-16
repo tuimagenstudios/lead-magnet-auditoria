@@ -1,7 +1,13 @@
 import json
 import os
+import sys
 import warnings
 from typing import Any
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except AttributeError:
+    pass
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", FutureWarning)
@@ -11,7 +17,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+FALLBACK_MODELS = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash"]
 KEYS = [
     key.strip()
     for key in [
@@ -151,9 +158,9 @@ def construir_prompt_usuario(datos: dict) -> str:
     return "\n".join(lineas)
 
 
-def _crear_modelo():
+def _crear_modelo(model_name: str):
     return genai.GenerativeModel(
-        model_name=GEMINI_MODEL,
+        model_name=model_name,
         generation_config=GENERATION_CONFIG,
         system_instruction=PROMPT_SISTEMA,
     )
@@ -163,18 +170,59 @@ def _texto_respuesta(response: Any) -> str:
     return getattr(response, "text", "") or ""
 
 
+def _keys_disponibles() -> list[str]:
+    keys = [
+        key.strip()
+        for key in [
+            os.getenv("GEMINI_API_KEY_1"),
+            os.getenv("GEMINI_API_KEY_2"),
+            os.getenv("GEMINI_API_KEY_3"),
+            os.getenv("GEMINI_API_KEY_4"),
+        ]
+        if key and key.strip()
+    ]
+    print("✓ Keys cargadas:", len(keys), flush=True)
+    return keys
+
+
+def _modelos_disponibles() -> list[str]:
+    modelos = [GEMINI_MODEL]
+    for model_name in FALLBACK_MODELS:
+        if model_name not in modelos:
+            modelos.append(model_name)
+    return modelos
+
+
+def _modelo_no_disponible(error: Exception) -> bool:
+    texto = str(error).lower()
+    return "404" in texto or "not found" in texto or "not supported" in texto
+
+
 def intentar_con_rotacion(prompt: str) -> str:
-    if not KEYS:
+    keys = _keys_disponibles()
+    modelos = _modelos_disponibles()
+
+    if not keys:
         raise RuntimeError("Todas las API keys fallaron")
 
-    for indice, key in enumerate(KEYS, start=1):
+    for indice, key in enumerate(keys, start=1):
         try:
+            print("✓ Intentando con key", indice, flush=True)
             genai.configure(api_key=key)
-            modelo = _crear_modelo()
-            return _texto_respuesta(modelo.generate_content(prompt))
+            for modelo_indice, model_name in enumerate(modelos):
+                try:
+                    modelo = _crear_modelo(model_name)
+                    texto = _texto_respuesta(modelo.generate_content(prompt))
+                    print("✓ Respuesta recibida:", len(texto), "chars", flush=True)
+                    return texto
+                except Exception as exc:
+                    if _modelo_no_disponible(exc) and modelo_indice < len(modelos) - 1:
+                        print("✗ Modelo", model_name, "no disponible; probando", modelos[modelo_indice + 1], flush=True)
+                        continue
+                    raise
         except Exception as exc:
             detalle = str(exc).replace(key, "[key oculta]")
-            print(f"Gemini key #{indice} falló: {type(exc).__name__}: {detalle}")
+            print("✗ Key", indice, "falló:", f"{type(exc).__name__}: {detalle}", flush=True)
 
     raise RuntimeError("Todas las API keys fallaron")
 
@@ -203,7 +251,8 @@ def generar_diagnostico(datos: dict) -> dict:
 
     try:
         return _parsear_json(respuesta)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as exc:
+        print("✗ Error en parseo JSON:", str(exc), flush=True)
         prompt_reintento = (
             f"{prompt}\n\n"
             "El JSON anterior tuvo error. Devolvé SOLO un JSON válido, "
@@ -213,5 +262,6 @@ def generar_diagnostico(datos: dict) -> dict:
 
     try:
         return _parsear_json(respuesta_reintento)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as exc:
+        print("✗ Error en parseo JSON:", str(exc), flush=True)
         return {"error": "Diagnóstico no generado", "detalle": "Parseo JSON falló"}

@@ -99,6 +99,76 @@ class GeneradorTests(unittest.TestCase):
             system_instruction=generador.PROMPT_SISTEMA,
         )
 
+    def test_generar_diagnostico_usa_fallback_si_modelo_configurado_no_existe(self):
+        generador = importlib.reload(importlib.import_module("generador"))
+        respuesta = {
+            "puntaje_general": 74,
+            "resumen_ejecutivo": "Hay buena base.",
+            "fortalezas": ["Web activa", "Mensaje claro", "Identidad presente"],
+            "oportunidades": [],
+            "diagnostico_estrategico": "Conviene ordenar la estrategia de contenido.",
+            "servicios_sugeridos": [],
+        }
+        modelo_no_encontrado = Mock()
+        modelo_no_encontrado.generate_content.side_effect = RuntimeError("404 model is not found")
+        modelo_ok = Mock()
+        modelo_ok.generate_content.return_value = Mock(text=json.dumps(respuesta))
+
+        with (
+            patch.object(generador.genai, "configure"),
+            patch.object(generador.genai, "GenerativeModel", side_effect=[modelo_no_encontrado, modelo_ok]) as model_cls,
+        ):
+            diagnostico = generador.generar_diagnostico(
+                {
+                    "url": "https://tuimagenstudios.com",
+                    "instagram": "",
+                    "email": "test@test.com",
+                    "datos_web": {"status_code": 200},
+                    "datos_ig": {"analizado": False},
+                }
+            )
+
+        self.assertEqual(diagnostico["puntaje_general"], 74)
+        modelos = [call.kwargs["model_name"] for call in model_cls.call_args_list]
+        self.assertEqual(modelos, ["modelo-test", "gemini-2.0-flash"])
+
+    def test_generar_diagnostico_emite_logs_de_debug(self):
+        generador = importlib.reload(importlib.import_module("generador"))
+        respuesta = {
+            "puntaje_general": 72,
+            "resumen_ejecutivo": "Hay una base clara.",
+            "fortalezas": ["Web activa", "Marca reconocible", "Canal social presente"],
+            "oportunidades": [],
+            "diagnostico_estrategico": "La presencia tiene señales valiosas.",
+            "servicios_sugeridos": [],
+        }
+        modelo = Mock()
+        modelo.generate_content.return_value = Mock(text=json.dumps(respuesta))
+
+        with (
+            patch.object(generador.genai, "configure"),
+            patch.object(generador.genai, "GenerativeModel", return_value=modelo),
+            patch("generador.print") as print_mock,
+        ):
+            generador.generar_diagnostico(
+                {
+                    "url": "https://tuimagenstudios.com",
+                    "instagram": "@tuimagen_studio",
+                    "email": "test@test.com",
+                    "frecuencia": "esporadica",
+                    "estrategia": "improvisado",
+                    "reto": "ideas",
+                    "datos_web": {"status_code": 200},
+                    "datos_ig": {"analizado": True},
+                }
+            )
+
+        trazas = [" ".join(str(arg) for arg in call.args) for call in print_mock.call_args_list]
+
+        self.assertTrue(any("✓ Keys cargadas:" in traza for traza in trazas))
+        self.assertTrue(any("✓ Intentando con key" in traza for traza in trazas))
+        self.assertTrue(any("✓ Respuesta recibida:" in traza for traza in trazas))
+
     def test_generar_diagnostico_reintenta_una_vez_si_el_json_falla(self):
         generador = importlib.reload(importlib.import_module("generador"))
         respuesta_ok = {

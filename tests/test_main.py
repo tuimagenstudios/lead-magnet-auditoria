@@ -17,6 +17,40 @@ class FakeRequest:
 
 
 class AuditarEndpointTests(unittest.TestCase):
+    def test_auditar_emite_trazas_del_flujo_completo(self):
+        request = FakeRequest(
+            {
+                "url": "https://tuimagenstudios.com",
+                "instagram": "@tuimagen_studio",
+                "email": "test@test.com",
+                "frecuencia": "semanal_alta",
+                "estrategia": "parcial",
+                "reto": "ventas",
+            }
+        )
+
+        with (
+            patch("main.analizar_web", return_value={"status_code": 200}, create=True),
+            patch("main.analizar_instagram", return_value={"analizado": True}, create=True),
+            patch("main.generar_diagnostico", return_value={"puntaje_general": 72}, create=True),
+            patch("main.print") as print_mock,
+        ):
+            asyncio.run(auditar(request))
+
+        trazas = [call.args[0] for call in print_mock.call_args_list if call.args]
+
+        for esperado in [
+            ">> Petición recibida",
+            ">> Analizando web...",
+            ">> Web OK",
+            ">> Analizando Instagram...",
+            ">> Instagram OK",
+            ">> Llamando a Gemini...",
+            ">> Diagnóstico generado",
+            ">> Respondiendo al cliente",
+        ]:
+            self.assertIn(esperado, trazas)
+
     def test_auditar_incluye_preview_de_analisis(self):
         request = FakeRequest(
             {
