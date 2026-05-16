@@ -32,6 +32,7 @@ class AuditarEndpointTests(unittest.TestCase):
         with (
             patch("main.analizar_web", return_value={"status_code": 200}, create=True) as analizar_web,
             patch("main.analizar_instagram", return_value={"analizado": True}, create=True) as analizar_ig,
+            patch("main.generar_diagnostico", return_value={"puntaje_general": 72}, create=True) as generar,
         ):
             response = asyncio.run(auditar(request))
 
@@ -39,9 +40,13 @@ class AuditarEndpointTests(unittest.TestCase):
 
         self.assertEqual(body["status"], "recibido")
         self.assertEqual(body["email"], "test@test.com")
-        self.assertEqual(body["preview"], {"web_ok": True, "ig_ok": True})
+        self.assertTrue(body["diagnostico_generado"])
+        self.assertNotIn("preview", body)
         analizar_web.assert_called_once_with("https://tuimagenstudios.com")
         analizar_ig.assert_called_once_with("@tuimagen_studio")
+        generar.assert_called_once()
+        self.assertEqual(generar.call_args.args[0]["datos_web"], {"status_code": 200})
+        self.assertEqual(generar.call_args.args[0]["datos_ig"], {"analizado": True})
 
     def test_auditar_rechaza_si_faltan_preguntas_estrategicas(self):
         request = FakeRequest(
@@ -72,13 +77,14 @@ class AuditarEndpointTests(unittest.TestCase):
         with (
             patch("main.analizar_web", return_value={"status_code": 200}, create=True) as analizar_web,
             patch("main.analizar_instagram", return_value={"analizado": False}, create=True) as analizar_ig,
+            patch("main.generar_diagnostico", return_value={"puntaje_general": 80}, create=True),
         ):
             response = asyncio.run(auditar(request))
 
         body = json.loads(response.body)
 
         self.assertEqual(body["status"], "recibido")
-        self.assertEqual(body["preview"], {"web_ok": True, "ig_ok": False})
+        self.assertTrue(body["diagnostico_generado"])
         analizar_web.assert_called_once_with("https://tuimagenstudios.com")
         analizar_ig.assert_called_once_with("")
 
@@ -97,13 +103,14 @@ class AuditarEndpointTests(unittest.TestCase):
         with (
             patch("main.analizar_web", return_value={"status_code": 200}, create=True) as analizar_web,
             patch("main.analizar_instagram", return_value={"analizado": True}, create=True) as analizar_ig,
+            patch("main.generar_diagnostico", return_value={"puntaje_general": 67}, create=True),
         ):
             response = asyncio.run(auditar(request))
 
         body = json.loads(response.body)
 
         self.assertEqual(body["status"], "recibido")
-        self.assertEqual(body["preview"], {"web_ok": False, "ig_ok": True})
+        self.assertTrue(body["diagnostico_generado"])
         analizar_web.assert_not_called()
         analizar_ig.assert_called_once_with("@tuimagen_studio")
 
@@ -121,6 +128,27 @@ class AuditarEndpointTests(unittest.TestCase):
 
         self.assertEqual(context.exception.status_code, 400)
         self.assertEqual(context.exception.detail, "Necesitamos al menos tu web o tu Instagram")
+
+    def test_auditar_no_rompe_si_generador_falla(self):
+        request = FakeRequest(
+            {
+                "url": "https://tuimagenstudios.com",
+                "instagram": "",
+                "email": "test@test.com",
+            }
+        )
+
+        with (
+            patch("main.analizar_web", return_value={"status_code": 200}, create=True),
+            patch("main.analizar_instagram", return_value={"analizado": False}, create=True),
+            patch("main.generar_diagnostico", side_effect=RuntimeError("Gemini caído"), create=True),
+        ):
+            response = asyncio.run(auditar(request))
+
+        body = json.loads(response.body)
+
+        self.assertEqual(body["status"], "recibido")
+        self.assertFalse(body["diagnostico_generado"])
 
 
 if __name__ == "__main__":

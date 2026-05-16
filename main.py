@@ -6,6 +6,7 @@ from analizador import analizar_instagram, analizar_web
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
+from generador import generar_diagnostico
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from pydantic import BaseModel, EmailStr, ValidationError, field_validator, model_validator
 
@@ -112,13 +113,29 @@ async def auditar(request: Request):
     print("ANÁLISIS INSTAGRAM:")
     print(json.dumps(datos_diagnostico["instagram"], indent=2, ensure_ascii=False))
 
+    try:
+        diagnostico = generar_diagnostico(
+            {
+                "url": datos.url,
+                "instagram": datos.instagram,
+                "email": str(datos.email),
+                "frecuencia": datos.frecuencia,
+                "estrategia": datos.estrategia,
+                "reto": datos.reto,
+                "datos_web": datos_web,
+                "datos_ig": datos_ig,
+            }
+        )
+    except Exception as exc:
+        diagnostico = {"error": "Diagnóstico no generado", "detalle": str(exc)}
+
+    print("DIAGNÓSTICO:")
+    print(json.dumps(diagnostico, indent=2, ensure_ascii=False))
+
     return JSONResponse(
         {
             "status": "recibido",
             "email": str(datos.email),
-            "preview": {
-                "web_ok": datos_web.get("status_code") == 200,
-                "ig_ok": datos_ig.get("analizado", False),
-            },
+            "diagnostico_generado": "error" not in diagnostico,
         }
     )
