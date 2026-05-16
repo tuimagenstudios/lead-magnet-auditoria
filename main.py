@@ -123,7 +123,7 @@ async def auditar(request: Request):
     print("ANÁLISIS INSTAGRAM:", flush=True)
     print(json.dumps(datos_diagnostico["instagram"], indent=2, ensure_ascii=False), flush=True)
 
-    trace(">> Llamando a Gemini...")
+    trace(">> Llamando a DeepSeek...")
     try:
         diagnostico = generar_diagnostico(
             {

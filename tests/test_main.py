@@ -45,7 +45,7 @@ class AuditarEndpointTests(unittest.TestCase):
             ">> Web OK",
             ">> Analizando Instagram...",
             ">> Instagram OK",
-            ">> Llamando a Gemini...",
+            ">> Llamando a DeepSeek...",
             ">> Diagnóstico generado",
             ">> Respondiendo al cliente",
         ]:
@@ -175,7 +175,7 @@ class AuditarEndpointTests(unittest.TestCase):
         with (
             patch("main.analizar_web", return_value={"status_code": 200}, create=True),
             patch("main.analizar_instagram", return_value={"analizado": False}, create=True),
-            patch("main.generar_diagnostico", side_effect=RuntimeError("Gemini caído"), create=True),
+            patch("main.generar_diagnostico", side_effect=RuntimeError("DeepSeek caido"), create=True),
         ):
             response = asyncio.run(auditar(request))
 

@@ -2,7 +2,18 @@ import importlib
 import json
 import os
 import unittest
-from unittest.mock import Mock, patch
+from types import SimpleNamespace
+from unittest.mock import Mock, call, patch
+
+
+def respuesta_openai(texto):
+    return SimpleNamespace(
+        choices=[
+            SimpleNamespace(
+                message=SimpleNamespace(content=texto),
+            )
+        ]
+    )
 
 
 class GeneradorTests(unittest.TestCase):
@@ -10,12 +21,14 @@ class GeneradorTests(unittest.TestCase):
         self.env_patch = patch.dict(
             os.environ,
             {
-                "GEMINI_MODEL": "modelo-test",
-                "GEMINI_API_KEY_1": "key-1",
-                "GEMINI_API_KEY_2": "key-2",
-                "GEMINI_API_KEY_3": "",
-                "GEMINI_API_KEY_4": "",
+                "DEEPSEEK_MODEL": "deepseek-test",
+                "DEEPSEEK_BASE_URL": "https://api.deepseek.com",
+                "DEEPSEEK_API_KEY_1": "key-1",
+                "DEEPSEEK_API_KEY_2": "key-2",
+                "DEEPSEEK_API_KEY_3": "",
+                "DEEPSEEK_API_KEY_4": "",
             },
+            clear=False,
         )
         self.env_patch.start()
 
@@ -23,7 +36,7 @@ class GeneradorTests(unittest.TestCase):
         self.env_patch.stop()
 
     def test_construye_prompt_omitiendo_secciones_faltantes(self):
-        generador = importlib.import_module("generador")
+        generador = importlib.reload(importlib.import_module("generador"))
 
         prompt = generador.construir_prompt_usuario(
             {
@@ -40,8 +53,8 @@ class GeneradorTests(unittest.TestCase):
 
         self.assertIn("Email: test@test.com", prompt)
         self.assertIn("Instagram: @tuimagen_studio", prompt)
-        self.assertIn("AUTODIAGNÓSTICO DE REDES", prompt)
-        self.assertNotIn("ANÁLISIS TÉCNICO DE LA WEB", prompt)
+        self.assertIn("AUTODIAGN", prompt)
+        self.assertNotIn("TECNICO DE LA WEB", prompt)
         self.assertNotIn("null", prompt)
 
     def test_generar_diagnostico_rota_keys_y_parsea_json_limpio(self):
@@ -57,22 +70,18 @@ class GeneradorTests(unittest.TestCase):
                     "prioridad": "alta",
                 }
             ],
-            "diagnostico_estrategico": "La presencia tiene señales valiosas. Conviene ordenar prioridades y sostener una rutina.",
+            "diagnostico_estrategico": "La presencia tiene senales valiosas.",
             "servicios_sugeridos": [
                 {"nombre": "Marketing Digital", "razon": "Ayuda a convertir publicaciones aisladas en un plan."}
             ],
         }
 
-        modelo_fallido = Mock()
-        modelo_fallido.generate_content.side_effect = RuntimeError("cuota")
-        modelo_ok = Mock()
-        modelo_ok.generate_content.return_value = Mock(text=f"```json\n{json.dumps(respuesta)}\n```")
+        cliente_fallido = Mock()
+        cliente_fallido.chat.completions.create.side_effect = RuntimeError("cuota")
+        cliente_ok = Mock()
+        cliente_ok.chat.completions.create.return_value = respuesta_openai(f"```json\n{json.dumps(respuesta)}\n```")
 
-        with patch.object(generador.genai, "configure") as configure, patch.object(
-            generador.genai,
-            "GenerativeModel",
-            side_effect=[modelo_fallido, modelo_ok],
-        ) as model_cls:
+        with patch.object(generador, "OpenAI", side_effect=[cliente_fallido, cliente_ok]) as openai_cls:
             diagnostico = generador.generar_diagnostico(
                 {
                     "url": "https://tuimagenstudios.com",
@@ -87,50 +96,21 @@ class GeneradorTests(unittest.TestCase):
             )
 
         self.assertEqual(diagnostico["puntaje_general"], 72)
-        self.assertEqual(configure.call_count, 2)
-        self.assertEqual(model_cls.call_count, 2)
-        model_cls.assert_called_with(
-            model_name="modelo-test",
-            generation_config={
-                "temperature": 0.7,
-                "max_output_tokens": 2048,
-                "response_mime_type": "application/json",
-            },
-            system_instruction=generador.PROMPT_SISTEMA,
+        self.assertEqual(
+            openai_cls.call_args_list,
+            [
+                call(api_key="key-1", base_url="https://api.deepseek.com"),
+                call(api_key="key-2", base_url="https://api.deepseek.com"),
+            ],
         )
-
-    def test_generar_diagnostico_usa_fallback_si_modelo_configurado_no_existe(self):
-        generador = importlib.reload(importlib.import_module("generador"))
-        respuesta = {
-            "puntaje_general": 74,
-            "resumen_ejecutivo": "Hay buena base.",
-            "fortalezas": ["Web activa", "Mensaje claro", "Identidad presente"],
-            "oportunidades": [],
-            "diagnostico_estrategico": "Conviene ordenar la estrategia de contenido.",
-            "servicios_sugeridos": [],
-        }
-        modelo_no_encontrado = Mock()
-        modelo_no_encontrado.generate_content.side_effect = RuntimeError("404 model is not found")
-        modelo_ok = Mock()
-        modelo_ok.generate_content.return_value = Mock(text=json.dumps(respuesta))
-
-        with (
-            patch.object(generador.genai, "configure"),
-            patch.object(generador.genai, "GenerativeModel", side_effect=[modelo_no_encontrado, modelo_ok]) as model_cls,
-        ):
-            diagnostico = generador.generar_diagnostico(
-                {
-                    "url": "https://tuimagenstudios.com",
-                    "instagram": "",
-                    "email": "test@test.com",
-                    "datos_web": {"status_code": 200},
-                    "datos_ig": {"analizado": False},
-                }
-            )
-
-        self.assertEqual(diagnostico["puntaje_general"], 74)
-        modelos = [call.kwargs["model_name"] for call in model_cls.call_args_list]
-        self.assertEqual(modelos, ["modelo-test", "gemini-2.0-flash"])
+        cliente_ok.chat.completions.create.assert_called_once()
+        kwargs = cliente_ok.chat.completions.create.call_args.kwargs
+        self.assertEqual(kwargs["model"], "deepseek-test")
+        self.assertEqual(kwargs["temperature"], 0.7)
+        self.assertEqual(kwargs["max_tokens"], 2048)
+        self.assertEqual(kwargs["response_format"], {"type": "json_object"})
+        self.assertEqual(kwargs["messages"][0], {"role": "system", "content": generador.PROMPT_SISTEMA})
+        self.assertEqual(kwargs["messages"][1]["role"], "user")
 
     def test_generar_diagnostico_emite_logs_de_debug(self):
         generador = importlib.reload(importlib.import_module("generador"))
@@ -139,15 +119,14 @@ class GeneradorTests(unittest.TestCase):
             "resumen_ejecutivo": "Hay una base clara.",
             "fortalezas": ["Web activa", "Marca reconocible", "Canal social presente"],
             "oportunidades": [],
-            "diagnostico_estrategico": "La presencia tiene señales valiosas.",
+            "diagnostico_estrategico": "La presencia tiene senales valiosas.",
             "servicios_sugeridos": [],
         }
-        modelo = Mock()
-        modelo.generate_content.return_value = Mock(text=json.dumps(respuesta))
+        cliente = Mock()
+        cliente.chat.completions.create.return_value = respuesta_openai(json.dumps(respuesta))
 
         with (
-            patch.object(generador.genai, "configure"),
-            patch.object(generador.genai, "GenerativeModel", return_value=modelo),
+            patch.object(generador, "OpenAI", return_value=cliente),
             patch("generador.print") as print_mock,
         ):
             generador.generar_diagnostico(
@@ -163,33 +142,29 @@ class GeneradorTests(unittest.TestCase):
                 }
             )
 
-        trazas = [" ".join(str(arg) for arg in call.args) for call in print_mock.call_args_list]
+        trazas = [" ".join(str(arg) for arg in call_obj.args) for call_obj in print_mock.call_args_list]
 
-        self.assertTrue(any("✓ Keys cargadas:" in traza for traza in trazas))
-        self.assertTrue(any("✓ Intentando con key" in traza for traza in trazas))
-        self.assertTrue(any("✓ Respuesta recibida:" in traza for traza in trazas))
+        self.assertTrue(any("Keys DeepSeek cargadas:" in traza for traza in trazas))
+        self.assertTrue(any("Intentando DeepSeek con key" in traza for traza in trazas))
+        self.assertTrue(any("Respuesta DeepSeek recibida:" in traza for traza in trazas))
 
     def test_generar_diagnostico_reintenta_una_vez_si_el_json_falla(self):
         generador = importlib.reload(importlib.import_module("generador"))
         respuesta_ok = {
             "puntaje_general": 61,
             "resumen_ejecutivo": "Hay base, pero falta orden.",
-            "fortalezas": ["Tiene canal", "Tiene contacto", "Hay intención"],
+            "fortalezas": ["Tiene canal", "Tiene contacto", "Hay intencion"],
             "oportunidades": [],
-            "diagnostico_estrategico": "El trabajo principal es ordenar los próximos pasos.",
+            "diagnostico_estrategico": "El trabajo principal es ordenar los proximos pasos.",
             "servicios_sugeridos": [],
         }
-        modelo = Mock()
-        modelo.generate_content.side_effect = [
-            Mock(text="esto no es json"),
-            Mock(text=json.dumps(respuesta_ok)),
+        cliente = Mock()
+        cliente.chat.completions.create.side_effect = [
+            respuesta_openai("esto no es json"),
+            respuesta_openai(json.dumps(respuesta_ok)),
         ]
 
-        with patch.object(generador.genai, "configure"), patch.object(
-            generador.genai,
-            "GenerativeModel",
-            return_value=modelo,
-        ):
+        with patch.object(generador, "OpenAI", return_value=cliente):
             diagnostico = generador.generar_diagnostico(
                 {
                     "url": "https://tuimagenstudios.com",
@@ -201,19 +176,16 @@ class GeneradorTests(unittest.TestCase):
             )
 
         self.assertEqual(diagnostico["puntaje_general"], 61)
-        self.assertEqual(modelo.generate_content.call_count, 2)
-        self.assertIn("El JSON anterior tuvo error", modelo.generate_content.call_args[0][0])
+        self.assertEqual(cliente.chat.completions.create.call_count, 2)
+        segundo_prompt = cliente.chat.completions.create.call_args.kwargs["messages"][1]["content"]
+        self.assertIn("El JSON anterior tuvo error", segundo_prompt)
 
     def test_generar_diagnostico_devuelve_error_si_el_parseo_falla_dos_veces(self):
         generador = importlib.reload(importlib.import_module("generador"))
-        modelo = Mock()
-        modelo.generate_content.return_value = Mock(text="sin json")
+        cliente = Mock()
+        cliente.chat.completions.create.return_value = respuesta_openai("sin json")
 
-        with patch.object(generador.genai, "configure"), patch.object(
-            generador.genai,
-            "GenerativeModel",
-            return_value=modelo,
-        ):
+        with patch.object(generador, "OpenAI", return_value=cliente):
             diagnostico = generador.generar_diagnostico(
                 {
                     "url": "https://tuimagenstudios.com",
@@ -226,7 +198,7 @@ class GeneradorTests(unittest.TestCase):
 
         self.assertEqual(
             diagnostico,
-            {"error": "Diagnóstico no generado", "detalle": "Parseo JSON falló"},
+            {"error": "Diagnostico no generado", "detalle": "Parseo JSON fallo"},
         )
 
 

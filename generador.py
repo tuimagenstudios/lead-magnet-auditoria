@@ -1,7 +1,6 @@
 import json
 import os
 import sys
-import warnings
 from typing import Any
 
 try:
@@ -9,32 +8,24 @@ try:
 except AttributeError:
     pass
 
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore", FutureWarning)
-    import google.generativeai as genai
 from dotenv import load_dotenv
+from openai import OpenAI
 
 
 load_dotenv()
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
-FALLBACK_MODELS = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash"]
+DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 KEYS = [
     key.strip()
     for key in [
-        os.getenv("GEMINI_API_KEY_1"),
-        os.getenv("GEMINI_API_KEY_2"),
-        os.getenv("GEMINI_API_KEY_3"),
-        os.getenv("GEMINI_API_KEY_4"),
+        os.getenv("DEEPSEEK_API_KEY_1"),
+        os.getenv("DEEPSEEK_API_KEY_2"),
+        os.getenv("DEEPSEEK_API_KEY_3"),
+        os.getenv("DEEPSEEK_API_KEY_4"),
     ]
     if key and key.strip()
 ]
-
-GENERATION_CONFIG = {
-    "temperature": 0.7,
-    "max_output_tokens": 2048,
-    "response_mime_type": "application/json",
-}
 
 PROMPT_SISTEMA = """
 Sos el analista digital de Tuimagen Studio, un estudio
@@ -158,73 +149,63 @@ def construir_prompt_usuario(datos: dict) -> str:
     return "\n".join(lineas)
 
 
-def _crear_modelo(model_name: str):
-    return genai.GenerativeModel(
-        model_name=model_name,
-        generation_config=GENERATION_CONFIG,
-        system_instruction=PROMPT_SISTEMA,
-    )
+def _crear_cliente(key: str) -> OpenAI:
+    return OpenAI(api_key=key, base_url=DEEPSEEK_BASE_URL)
 
 
 def _texto_respuesta(response: Any) -> str:
-    return getattr(response, "text", "") or ""
+    try:
+        return response.choices[0].message.content or ""
+    except (AttributeError, IndexError, TypeError):
+        return ""
 
 
 def _keys_disponibles() -> list[str]:
     keys = [
         key.strip()
         for key in [
-            os.getenv("GEMINI_API_KEY_1"),
-            os.getenv("GEMINI_API_KEY_2"),
-            os.getenv("GEMINI_API_KEY_3"),
-            os.getenv("GEMINI_API_KEY_4"),
+            os.getenv("DEEPSEEK_API_KEY_1"),
+            os.getenv("DEEPSEEK_API_KEY_2"),
+            os.getenv("DEEPSEEK_API_KEY_3"),
+            os.getenv("DEEPSEEK_API_KEY_4"),
         ]
         if key and key.strip()
     ]
-    print("✓ Keys cargadas:", len(keys), flush=True)
+    print("✓ Keys DeepSeek cargadas:", len(keys), flush=True)
     return keys
 
 
-def _modelos_disponibles() -> list[str]:
-    modelos = [GEMINI_MODEL]
-    for model_name in FALLBACK_MODELS:
-        if model_name not in modelos:
-            modelos.append(model_name)
-    return modelos
-
-
-def _modelo_no_disponible(error: Exception) -> bool:
-    texto = str(error).lower()
-    return "404" in texto or "not found" in texto or "not supported" in texto
+def _crear_respuesta(client: OpenAI, prompt: str):
+    return client.chat.completions.create(
+        model=DEEPSEEK_MODEL,
+        messages=[
+            {"role": "system", "content": PROMPT_SISTEMA},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.7,
+        max_tokens=2048,
+        response_format={"type": "json_object"},
+    )
 
 
 def intentar_con_rotacion(prompt: str) -> str:
     keys = _keys_disponibles()
-    modelos = _modelos_disponibles()
 
     if not keys:
-        raise RuntimeError("Todas las API keys fallaron")
+        raise RuntimeError("Todas las API keys de DeepSeek fallaron")
 
     for indice, key in enumerate(keys, start=1):
         try:
-            print("✓ Intentando con key", indice, flush=True)
-            genai.configure(api_key=key)
-            for modelo_indice, model_name in enumerate(modelos):
-                try:
-                    modelo = _crear_modelo(model_name)
-                    texto = _texto_respuesta(modelo.generate_content(prompt))
-                    print("✓ Respuesta recibida:", len(texto), "chars", flush=True)
-                    return texto
-                except Exception as exc:
-                    if _modelo_no_disponible(exc) and modelo_indice < len(modelos) - 1:
-                        print("✗ Modelo", model_name, "no disponible; probando", modelos[modelo_indice + 1], flush=True)
-                        continue
-                    raise
+            print("✓ Intentando DeepSeek con key", indice, flush=True)
+            client = _crear_cliente(key)
+            texto = _texto_respuesta(_crear_respuesta(client, prompt))
+            print("✓ Respuesta DeepSeek recibida:", len(texto), "chars", flush=True)
+            return texto
         except Exception as exc:
             detalle = str(exc).replace(key, "[key oculta]")
-            print("✗ Key", indice, "falló:", f"{type(exc).__name__}: {detalle}", flush=True)
+            print("✗ Key DeepSeek", indice, "falló:", f"{type(exc).__name__}: {detalle}", flush=True)
 
-    raise RuntimeError("Todas las API keys fallaron")
+    raise RuntimeError("Todas las API keys de DeepSeek fallaron")
 
 
 def _limpiar_texto_json(texto: str) -> str:
@@ -264,4 +245,4 @@ def generar_diagnostico(datos: dict) -> dict:
         return _parsear_json(respuesta_reintento)
     except json.JSONDecodeError as exc:
         print("✗ Error en parseo JSON:", str(exc), flush=True)
-        return {"error": "Diagnóstico no generado", "detalle": "Parseo JSON falló"}
+        return {"error": "Diagnostico no generado", "detalle": "Parseo JSON fallo"}
