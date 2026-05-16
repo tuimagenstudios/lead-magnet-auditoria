@@ -1,6 +1,8 @@
+import json
 from json import JSONDecodeError
 from typing import Optional
 
+from analizador import analizar_instagram, analizar_web
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -62,12 +64,28 @@ async def auditar(request: Request):
     except ValidationError as exc:
         raise HTTPException(status_code=400, detail="Datos inválidos") from exc
 
-    print(
+    try:
+        datos_web = analizar_web(datos.url)
+    except Exception as exc:
+        datos_web = {"error": f"Error inesperado en análisis web: {exc}"}
+
+    try:
+        datos_ig = analizar_instagram(datos.instagram or "")
+    except Exception as exc:
+        datos_ig = {"analizado": False, "error": f"Error inesperado en análisis de Instagram: {exc}"}
+
+    print("ANÁLISIS WEB:")
+    print(json.dumps(datos_web, indent=2, ensure_ascii=False))
+    print("ANÁLISIS INSTAGRAM:")
+    print(json.dumps(datos_ig, indent=2, ensure_ascii=False))
+
+    return JSONResponse(
         {
-            "url": datos.url,
-            "instagram": datos.instagram,
+            "status": "recibido",
             "email": str(datos.email),
+            "preview": {
+                "web_ok": datos_web.get("status_code") == 200,
+                "ig_ok": datos_ig.get("analizado", False),
+            },
         }
     )
-
-    return JSONResponse({"status": "recibido", "email": str(datos.email)})

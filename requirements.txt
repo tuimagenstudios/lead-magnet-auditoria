@@ -3,3 +3,6 @@ uvicorn[standard]
 python-dotenv
 jinja2
 pydantic[email]
+requests
+beautifulsoup4
+lxml
