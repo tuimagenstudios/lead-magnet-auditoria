@@ -1,12 +1,13 @@
 import json
 from json import JSONDecodeError
+from typing import Optional
 
 from analizador import analizar_instagram, analizar_web
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from pydantic import BaseModel, EmailStr, ValidationError, field_validator
+from pydantic import BaseModel, EmailStr, ValidationError, field_validator, model_validator
 
 
 app = FastAPI()
@@ -28,9 +29,9 @@ class AuditoriaRequest(BaseModel):
     url: str
     instagram: str = ""
     email: EmailStr
-    frecuencia: str
-    estrategia: str
-    reto: str
+    frecuencia: Optional[str] = None
+    estrategia: Optional[str] = None
+    reto: Optional[str] = None
 
     @field_validator("url")
     @classmethod
@@ -46,10 +47,16 @@ class AuditoriaRequest(BaseModel):
 
     @field_validator("frecuencia", "estrategia", "reto")
     @classmethod
-    def validar_pregunta_estrategica(cls, value: str) -> str:
+    def limpiar_pregunta_estrategica(cls, value: Optional[str]) -> Optional[str]:
         if not value or not value.strip():
-            raise ValueError("Las preguntas estratégicas son obligatorias")
+            return None
         return value.strip()
+
+    @model_validator(mode="after")
+    def validar_preguntas_si_hay_instagram(self):
+        if self.instagram and not all([self.frecuencia, self.estrategia, self.reto]):
+            raise ValueError("Las preguntas estratégicas son obligatorias si hay Instagram")
+        return self
 
 
 @app.get("/")

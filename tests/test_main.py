@@ -60,6 +60,28 @@ class AuditarEndpointTests(unittest.TestCase):
 
         self.assertEqual(context.exception.status_code, 400)
 
+    def test_auditar_acepta_sin_preguntas_si_instagram_esta_vacio(self):
+        request = FakeRequest(
+            {
+                "url": "https://tuimagenstudios.com",
+                "instagram": "",
+                "email": "test@test.com",
+            }
+        )
+
+        with (
+            patch("main.analizar_web", return_value={"status_code": 200}, create=True) as analizar_web,
+            patch("main.analizar_instagram", return_value={"analizado": False}, create=True) as analizar_ig,
+        ):
+            response = asyncio.run(auditar(request))
+
+        body = json.loads(response.body)
+
+        self.assertEqual(body["status"], "recibido")
+        self.assertEqual(body["preview"], {"web_ok": True, "ig_ok": False})
+        analizar_web.assert_called_once_with("https://tuimagenstudios.com")
+        analizar_ig.assert_called_once_with("")
+
 
 if __name__ == "__main__":
     unittest.main()

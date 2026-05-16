@@ -119,6 +119,20 @@
       background: #0d1531;
     }
 
+    #preguntas-extra {
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 300ms ease;
+    }
+
+    #preguntas-extra.visible {
+      max-height: 1400px;
+      opacity: 1;
+      pointer-events: auto;
+    }
+
     .strategic-section {
       margin-top: 2rem;
       display: grid;
@@ -283,14 +297,15 @@
           <input id="email" name="email" type="email" placeholder="hola@tumarca.com" required>
         </label>
 
-        <section class="strategic-section" aria-labelledby="strategic-title">
-          <h2 id="strategic-title" class="strategic-title">Contanos un poco más</h2>
+        <div id="preguntas-extra" aria-hidden="true">
+          <section class="strategic-section" aria-labelledby="strategic-title">
+            <h2 id="strategic-title" class="strategic-title">Contanos un poco más</h2>
 
           <fieldset class="question-group">
             <legend class="question-label">¿Cada cuánto publicás en tus redes?</legend>
             <div class="radio-options">
               <label class="radio-option">
-                <input type="radio" name="frecuencia" value="diaria" required>
+                <input type="radio" name="frecuencia" value="diaria">
                 <span class="radio-dot" aria-hidden="true"></span>
                 <span>Diariamente o casi</span>
               </label>
@@ -321,7 +336,7 @@
             <legend class="question-label">¿Tenés plan de contenido?</legend>
             <div class="radio-options">
               <label class="radio-option">
-                <input type="radio" name="estrategia" value="con_plan" required>
+                <input type="radio" name="estrategia" value="con_plan">
                 <span class="radio-dot" aria-hidden="true"></span>
                 <span>Sí, sigo un calendario</span>
               </label>
@@ -347,7 +362,7 @@
             <legend class="question-label">¿Cuál es tu mayor reto digital ahora?</legend>
             <div class="radio-options">
               <label class="radio-option">
-                <input type="radio" name="reto" value="ventas" required>
+                <input type="radio" name="reto" value="ventas">
                 <span class="radio-dot" aria-hidden="true"></span>
                 <span>Generar más ventas / clientes</span>
               </label>
@@ -373,7 +388,8 @@
               </label>
             </div>
           </fieldset>
-        </section>
+          </section>
+        </div>
 
         <button id="submit-button" type="submit">Quiero mi auditoría gratis →</button>
         <p id="message" class="message" role="status" aria-live="polite"></p>
@@ -385,6 +401,9 @@
     const form = document.querySelector("#audit-form");
     const button = document.querySelector("#submit-button");
     const message = document.querySelector("#message");
+    const instagramInput = form.instagram;
+    const preguntasExtra = document.querySelector("#preguntas-extra");
+    const strategicRadios = preguntasExtra.querySelectorAll('input[type="radio"]');
 
     const setMessage = (text, type) => {
       message.textContent = text;
@@ -396,17 +415,39 @@
       return selected ? selected.value : "";
     };
 
+    const clearStrategicAnswers = () => {
+      strategicRadios.forEach((radio) => {
+        radio.checked = false;
+      });
+    };
+
+    const toggleStrategicQuestions = () => {
+      if (instagramInput.value.trim() !== "") {
+        preguntasExtra.classList.add("visible");
+        preguntasExtra.setAttribute("aria-hidden", "false");
+        return;
+      }
+
+      preguntasExtra.classList.remove("visible");
+      preguntasExtra.setAttribute("aria-hidden", "true");
+      clearStrategicAnswers();
+    };
+
+    instagramInput.addEventListener("input", toggleStrategicQuestions);
+    toggleStrategicQuestions();
+
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       setMessage("", "");
 
+      const instagramActivo = form.instagram.value.trim() !== "";
       const data = {
         url: form.url.value.trim(),
         instagram: form.instagram.value.trim(),
         email: form.email.value.trim(),
-        frecuencia: getRadioValue("frecuencia"),
-        estrategia: getRadioValue("estrategia"),
-        reto: getRadioValue("reto")
+        frecuencia: instagramActivo ? getRadioValue("frecuencia") : null,
+        estrategia: instagramActivo ? getRadioValue("estrategia") : null,
+        reto: instagramActivo ? getRadioValue("reto") : null
       };
 
       if (!data.url || !data.email || !form.email.validity.valid) {
@@ -414,8 +455,8 @@
         return;
       }
 
-      if (!data.frecuencia || !data.estrategia || !data.reto) {
-        setMessage("Por favor respondé las 3 preguntas.", "error");
+      if (instagramActivo && (!data.frecuencia || !data.estrategia || !data.reto)) {
+        setMessage("Por favor respondé las 3 preguntas sobre tu Instagram", "error");
         return;
       }
 
@@ -437,6 +478,7 @@
 
         setMessage("¡Listo! En minutos recibirás tu diagnóstico.", "success");
         form.reset();
+        toggleStrategicQuestions();
       } catch (error) {
         setMessage("No pudimos enviar la solicitud. Intentá nuevamente.", "error");
       } finally {
