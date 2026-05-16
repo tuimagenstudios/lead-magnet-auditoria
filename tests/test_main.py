@@ -82,6 +82,46 @@ class AuditarEndpointTests(unittest.TestCase):
         analizar_web.assert_called_once_with("https://tuimagenstudios.com")
         analizar_ig.assert_called_once_with("")
 
+    def test_auditar_acepta_solo_instagram_con_preguntas(self):
+        request = FakeRequest(
+            {
+                "url": "",
+                "instagram": "@tuimagen_studio",
+                "email": "test@test.com",
+                "frecuencia": "diaria",
+                "estrategia": "con_plan",
+                "reto": "ventas",
+            }
+        )
+
+        with (
+            patch("main.analizar_web", return_value={"status_code": 200}, create=True) as analizar_web,
+            patch("main.analizar_instagram", return_value={"analizado": True}, create=True) as analizar_ig,
+        ):
+            response = asyncio.run(auditar(request))
+
+        body = json.loads(response.body)
+
+        self.assertEqual(body["status"], "recibido")
+        self.assertEqual(body["preview"], {"web_ok": False, "ig_ok": True})
+        analizar_web.assert_not_called()
+        analizar_ig.assert_called_once_with("@tuimagen_studio")
+
+    def test_auditar_rechaza_sin_web_ni_instagram(self):
+        request = FakeRequest(
+            {
+                "url": "",
+                "instagram": "",
+                "email": "test@test.com",
+            }
+        )
+
+        with self.assertRaises(HTTPException) as context:
+            asyncio.run(auditar(request))
+
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertEqual(context.exception.detail, "Necesitamos al menos tu web o tu Instagram")
+
 
 if __name__ == "__main__":
     unittest.main()

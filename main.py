@@ -26,23 +26,21 @@ app.add_middleware(
 
 
 class AuditoriaRequest(BaseModel):
-    url: str
+    url: Optional[str] = None
     instagram: str = ""
     email: EmailStr
     frecuencia: Optional[str] = None
     estrategia: Optional[str] = None
     reto: Optional[str] = None
 
-    @field_validator("url")
+    @field_validator("url", mode="before")
     @classmethod
-    def validar_url(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("La URL es obligatoria")
-        return value.strip()
+    def limpiar_url(cls, value: Optional[str]) -> str:
+        return value.strip() if value else ""
 
-    @field_validator("instagram")
+    @field_validator("instagram", mode="before")
     @classmethod
-    def limpiar_instagram(cls, value: str) -> str:
+    def limpiar_instagram(cls, value: Optional[str]) -> str:
         return value.strip() if value else ""
 
     @field_validator("frecuencia", "estrategia", "reto")
@@ -77,6 +75,9 @@ async def auditar(request: Request):
     except ValidationError as exc:
         raise HTTPException(status_code=400, detail="Datos inválidos") from exc
 
+    if not datos.url and not datos.instagram:
+        raise HTTPException(status_code=400, detail="Necesitamos al menos tu web o tu Instagram")
+
     datos_formulario = {
         "url": datos.url,
         "instagram": datos.instagram,
@@ -86,10 +87,12 @@ async def auditar(request: Request):
         "reto": datos.reto,
     }
 
-    try:
-        datos_web = analizar_web(datos.url)
-    except Exception as exc:
-        datos_web = {"error": f"Error inesperado en análisis web: {exc}"}
+    datos_web = {"analizado": False}
+    if datos.url:
+        try:
+            datos_web = analizar_web(datos.url)
+        except Exception as exc:
+            datos_web = {"error": f"Error inesperado en análisis web: {exc}"}
 
     try:
         datos_ig = analizar_instagram(datos.instagram or "")

@@ -45,7 +45,7 @@
     }
 
     .shell {
-      width: min(100%, 620px);
+      width: min(100%, 860px);
       padding: clamp(28px, 5vw, 48px);
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -94,6 +94,17 @@
       color: var(--text);
       font-size: 0.95rem;
       font-weight: 600;
+    }
+
+    .label-row {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+
+    .required-mark {
+      color: var(--cyan);
+      font-weight: 700;
     }
 
     input:not([type="radio"]) {
@@ -258,6 +269,78 @@
       color: var(--error);
     }
 
+    .cross-promo {
+      margin-top: 3rem;
+    }
+
+    .cross-promo-title {
+      margin: 0 0 1rem;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 0.95rem;
+      font-weight: 500;
+      text-align: center;
+    }
+
+    .promo-cards {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .promo-card {
+      flex: 1 1 190px;
+      min-width: 0;
+      padding: 1.5rem;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.03);
+      text-decoration: none;
+      transition: border-color 200ms ease, transform 200ms ease, background 200ms ease;
+    }
+
+    .promo-card:hover,
+    .promo-card:focus-visible {
+      border-color: var(--cyan);
+      background: rgba(0, 224, 255, 0.05);
+      transform: translateY(-1px);
+      outline: none;
+    }
+
+    .promo-heading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 1rem;
+    }
+
+    .promo-icon {
+      color: var(--cyan);
+      font-weight: 600;
+    }
+
+    .promo-title {
+      display: block;
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .promo-description {
+      display: block;
+      min-height: 3em;
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    .promo-link {
+      display: block;
+      margin-top: 1rem;
+      color: var(--cyan);
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
     @media (max-width: 640px) {
       main {
         padding: 28px 16px;
@@ -271,6 +354,10 @@
       h1 {
         max-width: 12ch;
       }
+
+      .promo-card {
+        flex-basis: 100%;
+      }
     }
   </style>
 </head>
@@ -283,8 +370,8 @@
 
       <form id="audit-form" novalidate>
         <label for="url">
-          URL del sitio web
-          <input id="url" name="url" type="url" placeholder="https://tumarca.com" required>
+          <span class="label-row">URL del sitio web</span>
+          <input id="url" name="url" type="url" placeholder="https://tumarca.com">
         </label>
 
         <label for="instagram">
@@ -293,7 +380,7 @@
         </label>
 
         <label for="email">
-          Email
+          <span class="label-row">Email <span class="required-mark" aria-hidden="true">*</span></span>
           <input id="email" name="email" type="email" placeholder="hola@tumarca.com" required>
         </label>
 
@@ -394,6 +481,38 @@
         <button id="submit-button" type="submit">Quiero mi auditoría gratis →</button>
         <p id="message" class="message" role="status" aria-live="polite"></p>
       </form>
+
+      <section class="cross-promo" aria-labelledby="cross-promo-title">
+        <h2 id="cross-promo-title" class="cross-promo-title">Mientras llega tu auditoría...</h2>
+        <div class="promo-cards">
+          <a class="promo-card" href="https://tuimagenstudios.com/diseno-web/" target="_blank" rel="noopener">
+            <span class="promo-heading">
+              <span class="promo-icon">✦</span>
+              <span class="promo-title">Diseño Web</span>
+            </span>
+            <span class="promo-description">Webs con alma + SEO desde cero</span>
+            <span class="promo-link">Ver más →</span>
+          </a>
+
+          <a class="promo-card" href="https://tuimagenstudios.com/marketing-digital/" target="_blank" rel="noopener">
+            <span class="promo-heading">
+              <span class="promo-icon">✦</span>
+              <span class="promo-title">Marketing Digital</span>
+            </span>
+            <span class="promo-description">Estrategia + ads que convierten</span>
+            <span class="promo-link">Ver más →</span>
+          </a>
+
+          <a class="promo-card" href="https://tuimagenstudios.com/bots-ia/" target="_blank" rel="noopener">
+            <span class="promo-heading">
+              <span class="promo-icon">✦</span>
+              <span class="promo-title">IA &amp; Bots</span>
+            </span>
+            <span class="promo-description">Automatizá ventas con bots inteligentes</span>
+            <span class="promo-link">Ver más →</span>
+          </a>
+        </div>
+      </section>
     </section>
   </main>
 
@@ -450,8 +569,13 @@
         reto: instagramActivo ? getRadioValue("reto") : null
       };
 
-      if (!data.url || !data.email || !form.email.validity.valid) {
-        setMessage("Revisá la URL y el email antes de enviar.", "error");
+      if (!data.email || !form.email.validity.valid) {
+        setMessage("Revisá el email antes de enviar.", "error");
+        return;
+      }
+
+      if (!data.url && !data.instagram) {
+        setMessage("Necesitamos al menos tu web o tu Instagram", "error");
         return;
       }
 

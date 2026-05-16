@@ -33,6 +33,25 @@ class FormularioTemplateTests(unittest.TestCase):
         self.assertIn('estrategia: instagramActivo ? getRadioValue("estrategia") : null', self.html)
         self.assertIn('reto: instagramActivo ? getRadioValue("reto") : null', self.html)
 
+    def test_url_opcional_email_obligatorio_y_validacion_minima(self):
+        self.assertIn('<input id="url" name="url" type="url" placeholder="https://tumarca.com">', self.html)
+        self.assertIn('<span class="required-mark" aria-hidden="true">*</span>', self.html)
+        self.assertIn('<input id="email" name="email" type="email" placeholder="hola@tumarca.com" required>', self.html)
+        self.assertIn("if (!data.email || !form.email.validity.valid)", self.html)
+        self.assertIn("Necesitamos al menos tu web o tu Instagram", self.html)
+
+    def test_incluye_publicidad_cruzada(self):
+        self.assertIn("Mientras llega tu auditoría...", self.html)
+        self.assertIn("cross-promo", self.html)
+        self.assertIn("Diseño Web", self.html)
+        self.assertIn("Marketing Digital", self.html)
+        self.assertIn("IA &amp; Bots", self.html)
+        self.assertIn("https://tuimagenstudios.com/diseno-web/", self.html)
+        self.assertIn("https://tuimagenstudios.com/marketing-digital/", self.html)
+        self.assertIn("https://tuimagenstudios.com/bots-ia/", self.html)
+        self.assertIn('target="_blank" rel="noopener"', self.html)
+        self.assertIn("border-color: var(--cyan)", self.html)
+
 
 if __name__ == "__main__":
     unittest.main()
