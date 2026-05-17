@@ -28,7 +28,12 @@ class PdfGeneradorTests(unittest.TestCase):
         self.addCleanup(patch.stopall)
         html_mock.return_value.write_pdf.return_value = b"%PDF-test"
 
-        pdf = pdf_generador.generar_pdf(DIAGNOSTICO, "test@test.com", "17 de mayo de 2026")
+        pdf = pdf_generador.generar_pdf(
+            DIAGNOSTICO,
+            "test@test.com",
+            "17 de mayo de 2026",
+            datos={"url": "https://www.tuimagenstudios.com/contacto", "instagram": "@tuimagen_studio"},
+        )
 
         self.assertEqual(pdf, b"%PDF-test")
         html_mock.assert_called_once()
@@ -41,9 +46,33 @@ class PdfGeneradorTests(unittest.TestCase):
         self.assertIn("--font-display: Arial, Helvetica, sans-serif", html)
         self.assertIn("--font-body: 'Manrope', Arial, sans-serif", html)
         self.assertIn("--font-mono: 'JetBrains Mono', Arial, sans-serif", html)
+        self.assertIn("para tuimagenstudios.com", html)
+        self.assertNotIn("Preparado para", html)
+        self.assertIn("score-ring", html)
+        self.assertIn("font-size: 160pt", html)
+        self.assertIn("font-weight: 800", html)
+        self.assertIn("Estas son tus bases para crecer.", html)
+        self.assertIn("text-align: left", html)
+        self.assertIn("bottom: 260px", html)
         self.assertIn("width: 72%", html)
-        self.assertIn("test@test.com", html)
         html_mock.return_value.write_pdf.assert_called_once()
+
+    def test_generar_pdf_usa_handle_si_no_hay_url(self):
+        import pdf_generador
+
+        html_mock = patch.object(pdf_generador, "HTML").start()
+        self.addCleanup(patch.stopall)
+        html_mock.return_value.write_pdf.return_value = b"%PDF-test"
+
+        pdf_generador.generar_pdf(
+            DIAGNOSTICO,
+            "test@test.com",
+            "17 de mayo de 2026",
+            datos={"url": "", "instagram": "@tuimagen_studio"},
+        )
+
+        html = html_mock.call_args.kwargs["string"]
+        self.assertIn("para @tuimagen_studio", html)
 
 
 if __name__ == "__main__":

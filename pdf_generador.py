@@ -1,4 +1,5 @@
 from pathlib import Path
+from urllib.parse import urlparse
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from weasyprint import HTML
@@ -19,7 +20,27 @@ def _puntaje(diagnostico: dict) -> int:
     return max(0, min(100, puntaje))
 
 
-def generar_pdf(diagnostico: dict, email: str, fecha: str) -> bytes:
+def _destinatario(datos: dict | None, email: str) -> str:
+    datos = datos or {}
+    url = (datos.get("url") or "").strip()
+    instagram = (datos.get("instagram") or "").strip()
+
+    if url:
+        parsed = urlparse(url if "://" in url else f"https://{url}")
+        dominio = (parsed.netloc or parsed.path).split("/")[0].lower()
+        dominio = dominio.removeprefix("www.").strip()
+        if dominio:
+            return dominio
+
+    if instagram:
+        handle = instagram.lstrip("@").strip().strip("/")
+        if handle:
+            return f"@{handle}"
+
+    return email
+
+
+def generar_pdf(diagnostico: dict, email: str, fecha: str, *, datos: dict | None = None) -> bytes:
     env = Environment(
         loader=FileSystemLoader(TEMPLATES_DIR),
         autoescape=select_autoescape(["html", "xml"]),
@@ -29,6 +50,7 @@ def generar_pdf(diagnostico: dict, email: str, fecha: str) -> bytes:
     html = template.render(
         diagnostico=diagnostico,
         email=email,
+        destinatario=_destinatario(datos, email),
         fecha=fecha,
         puntaje=puntaje,
         progreso=puntaje,

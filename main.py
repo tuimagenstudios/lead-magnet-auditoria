@@ -182,7 +182,7 @@ async def auditar(request: Request):
     if "error" not in diagnostico:
         trace(">> Generando PDF...")
         try:
-            pdf = generar_pdf(diagnostico, str(datos.email), fecha_larga())
+            pdf = generar_pdf(diagnostico, str(datos.email), fecha_larga(), datos=datos_formulario)
             tamano_kb = len(pdf) / 1024
             trace(f">> PDF generado: {tamano_kb:.1f} KB")
             pdf_path = guardar_pdf_temporal(pdf, str(datos.email))

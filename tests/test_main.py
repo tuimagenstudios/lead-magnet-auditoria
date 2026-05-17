@@ -91,7 +91,19 @@ class AuditarEndpointTests(unittest.TestCase):
         generar.assert_called_once()
         self.assertEqual(generar.call_args.args[0]["datos_web"], {"status_code": 200})
         self.assertEqual(generar.call_args.args[0]["datos_ig"], {"analizado": True})
-        generar_pdf.assert_called_once_with({"puntaje_general": 72}, "test@test.com", ANY)
+        generar_pdf.assert_called_once_with(
+            {"puntaje_general": 72},
+            "test@test.com",
+            ANY,
+            datos={
+                "url": "https://tuimagenstudios.com",
+                "instagram": "@tuimagen_studio",
+                "email": "test@test.com",
+                "frecuencia": "semanal_alta",
+                "estrategia": "parcial",
+                "reto": "ventas",
+            },
+        )
         guardar_pdf.assert_called_once_with(b"%PDF-test", "test@test.com")
 
     def test_auditar_rechaza_si_faltan_preguntas_estrategicas(self):
