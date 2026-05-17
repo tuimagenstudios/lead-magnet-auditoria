@@ -11,9 +11,11 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from generador import generar_diagnostico
+from email_sender import enviar_pdf_diagnostico
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from pdf_generador import generar_pdf
 from pydantic import BaseModel, EmailStr, ValidationError, field_validator, model_validator
+from utils import dominio_o_handle, nombre_archivo_auditoria
 
 
 app = FastAPI()
@@ -179,6 +181,8 @@ async def auditar(request: Request):
     print(json.dumps(diagnostico, indent=2, ensure_ascii=False), flush=True)
 
     pdf_path = None
+    email_enviado = False
+    email_id = None
     if "error" not in diagnostico:
         trace(">> Generando PDF...")
         try:
@@ -187,6 +191,24 @@ async def auditar(request: Request):
             trace(f">> PDF generado: {tamano_kb:.1f} KB")
             pdf_path = guardar_pdf_temporal(pdf, str(datos.email))
             trace(f">> PDF guardado en: {pdf_path}")
+            destinatario_publico = dominio_o_handle(datos_formulario, str(datos.email))
+            nombre_archivo = nombre_archivo_auditoria(destinatario_publico, str(datos.email))
+            trace(f">> Enviando email a {datos.email}...")
+            try:
+                resultado_email = enviar_pdf_diagnostico(
+                    str(datos.email),
+                    pdf,
+                    nombre_archivo,
+                    destinatario_publico,
+                )
+                email_enviado = bool(resultado_email.get("enviado"))
+                email_id = resultado_email.get("id") if email_enviado else None
+                if email_enviado:
+                    trace(f">> Email enviado: {email_id}")
+                else:
+                    trace(f">> Email falló: {resultado_email.get('error')}")
+            except Exception as exc:
+                trace(f">> Email falló: {exc}")
         except Exception as exc:
             trace(f">> PDF no generado: {exc}")
 
@@ -199,5 +221,7 @@ async def auditar(request: Request):
             "diagnostico_generado": "error" not in diagnostico,
             "pdf_generado": pdf_path is not None,
             "pdf_path": pdf_path,
+            "email_enviado": email_enviado,
+            "email_id": email_id,
         }
     )
