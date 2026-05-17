@@ -57,7 +57,7 @@ def enviar_pdf_diagnostico(
     nombre_archivo: str,
     dominio_o_handle: str,
 ) -> dict:
-    load_dotenv()
+    load_dotenv(override=False)
 
     resend_api_key = os.getenv("RESEND_API_KEY", "").strip()
     email_from = os.getenv("EMAIL_FROM", "").strip()
