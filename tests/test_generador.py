@@ -52,10 +52,69 @@ class GeneradorTests(unittest.TestCase):
         )
 
         self.assertIn("Email: test@test.com", prompt)
-        self.assertIn("Instagram: @tuimagen_studio", prompt)
-        self.assertIn("AUTODIAGN", prompt)
+        self.assertIn("Cuenta: @tuimagen_studio", prompt)
+        self.assertIn("PRESENCIA EN INSTAGRAM", prompt)
         self.assertNotIn("TECNICO DE LA WEB", prompt)
         self.assertNotIn("null", prompt)
+
+    def test_prompt_de_instagram_usa_solo_respuestas_del_usuario(self):
+        generador = importlib.reload(importlib.import_module("generador"))
+
+        prompt = generador.construir_prompt_usuario(
+            {
+                "url": "https://tuimagenstudios.com",
+                "instagram": "@tuimagen_studio",
+                "email": "test@test.com",
+                "frecuencia": "esporadica",
+                "estrategia": "improvisado",
+                "reto": "ideas",
+                "datos_web": {"status_code": 200},
+                "datos_ig": {
+                    "perfil_existe": False,
+                    "bio_snippet": "texto que no debe llegar al modelo",
+                    "imagen_perfil": "https://instagram.com/avatar.jpg",
+                },
+            }
+        )
+
+        self.assertIn("PRESENCIA EN INSTAGRAM", prompt)
+        self.assertIn("Cuenta: @tuimagen_studio", prompt)
+        self.assertIn("Frecuencia de publicación: esporadica", prompt)
+        self.assertIn("Estrategia de contenido: improvisado", prompt)
+        self.assertIn("Mayor reto digital actual: ideas", prompt)
+        self.assertNotIn("METADATOS", prompt)
+        self.assertNotIn("perfil_existe", prompt)
+        self.assertNotIn("bio_snippet", prompt)
+        self.assertNotIn("imagen_perfil", prompt)
+        self.assertNotIn("texto que no debe llegar al modelo", prompt)
+
+    def test_prompt_omite_instagram_si_no_hay_handle(self):
+        generador = importlib.reload(importlib.import_module("generador"))
+
+        prompt = generador.construir_prompt_usuario(
+            {
+                "url": "https://tuimagenstudios.com",
+                "instagram": "",
+                "email": "test@test.com",
+                "frecuencia": "esporadica",
+                "estrategia": "improvisado",
+                "reto": "ideas",
+                "datos_web": {"status_code": 200},
+                "datos_ig": {"perfil_existe": False},
+            }
+        )
+
+        self.assertNotIn("PRESENCIA EN INSTAGRAM", prompt)
+        self.assertNotIn("Frecuencia de publicación", prompt)
+        self.assertNotIn("perfil_existe", prompt)
+
+    def test_prompt_sistema_no_confunde_frecuencia_baja_con_cuenta_inactiva(self):
+        generador = importlib.reload(importlib.import_module("generador"))
+
+        self.assertIn(
+            "No confundas una frecuencia esporádica con una cuenta inexistente, vacía o inactiva",
+            generador.PROMPT_SISTEMA,
+        )
 
     def test_generar_diagnostico_rota_keys_y_parsea_json_limpio(self):
         generador = importlib.reload(importlib.import_module("generador"))

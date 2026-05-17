@@ -44,6 +44,9 @@ REGLAS DE ESCRITURA:
 - Generosa al celebrar lo que está bien hecho.
 - Cerrar siempre con esperanza accionable.
 - Tutear (vos / tu / te), nunca usar "usted".
+- NUNCA afirmes que el perfil de Instagram de alguien no existe, está desactivado o está vacío. Si el usuario completó las preguntas sobre sus redes, asumí que su perfil existe y está activo.
+- Basate EXCLUSIVAMENTE en las respuestas del usuario (frecuencia, estrategia, reto) para evaluar su presencia en redes sociales. No inventes datos sobre cantidad de seguidores, bio, ni nada que no haya sido provisto.
+- No confundas una frecuencia esporádica con una cuenta inexistente, vacía o inactiva. Describila como publicación poco constante o sin planificación.
 
 ESTRUCTURA DE SALIDA: devolvé EXCLUSIVAMENTE un JSON
 válido (sin markdown, sin ```json, sin comentarios
@@ -105,9 +108,6 @@ def construir_prompt_usuario(datos: dict) -> str:
     if url:
         lineas.append(f"- URL web: {url}")
 
-    if instagram:
-        lineas.append(f"- Instagram: {instagram}")
-
     if url:
         lineas.extend(
             [
@@ -118,25 +118,18 @@ def construir_prompt_usuario(datos: dict) -> str:
         )
 
     if instagram:
+        handle_limpio = instagram.lstrip("@").strip()
         lineas.extend(
             [
                 "",
-                "AUTODIAGNÓSTICO DE REDES:",
-                f"- Frecuencia de publicación: {datos.get('frecuencia') or 'No informada'}",
-                f"- Estrategia de contenido: {datos.get('estrategia') or 'No informada'}",
-                f"- Mayor reto digital: {datos.get('reto') or 'No informado'}",
+                "PRESENCIA EN INSTAGRAM (autodiagnóstico del usuario):",
+                "",
+                f"Cuenta: @{handle_limpio}",
+                f"Frecuencia de publicación: {datos.get('frecuencia') or 'No informada'}",
+                f"Estrategia de contenido: {datos.get('estrategia') or 'No informada'}",
+                f"Mayor reto digital actual: {datos.get('reto') or 'No informado'}",
             ]
         )
-
-        datos_ig = datos.get("datos_ig") or {}
-        if datos_ig:
-            lineas.extend(
-                [
-                    "",
-                    "METADATOS PÚBLICOS DE INSTAGRAM:",
-                    json.dumps(datos_ig, indent=2, ensure_ascii=False),
-                ]
-            )
 
     lineas.extend(
         [
