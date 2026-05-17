@@ -1,5 +1,9 @@
 import json
+import os
+import re
 from json import JSONDecodeError
+from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from analizador import analizar_instagram, analizar_web
@@ -8,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from generador import generar_diagnostico
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+from pdf_generador import generar_pdf
 from pydantic import BaseModel, EmailStr, ValidationError, field_validator, model_validator
 
 
@@ -28,6 +33,35 @@ app.add_middleware(
 
 def trace(message: str) -> None:
     print(message, flush=True)
+
+
+def fecha_larga(fecha: datetime | None = None) -> str:
+    meses = [
+        "enero",
+        "febrero",
+        "marzo",
+        "abril",
+        "mayo",
+        "junio",
+        "julio",
+        "agosto",
+        "septiembre",
+        "octubre",
+        "noviembre",
+        "diciembre",
+    ]
+    actual = fecha or datetime.now()
+    return f"{actual.day} de {meses[actual.month - 1]} de {actual.year}"
+
+
+def guardar_pdf_temporal(pdf: bytes, email: str) -> str:
+    output_dir = Path(os.getenv("PDF_OUTPUT_DIR", "/tmp"))
+    output_dir.mkdir(parents=True, exist_ok=True)
+    email_seguro = re.sub(r"[^a-zA-Z0-9_.-]+", "_", email).strip("_") or "lead"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    ruta = output_dir / f"auditoria_{email_seguro}_{timestamp}.pdf"
+    ruta.write_bytes(pdf)
+    return str(ruta)
 
 
 class AuditoriaRequest(BaseModel):
@@ -143,6 +177,19 @@ async def auditar(request: Request):
 
     print("DIAGNÓSTICO:", flush=True)
     print(json.dumps(diagnostico, indent=2, ensure_ascii=False), flush=True)
+
+    pdf_path = None
+    if "error" not in diagnostico:
+        trace(">> Generando PDF...")
+        try:
+            pdf = generar_pdf(diagnostico, str(datos.email), fecha_larga())
+            tamano_kb = len(pdf) / 1024
+            trace(f">> PDF generado: {tamano_kb:.1f} KB")
+            pdf_path = guardar_pdf_temporal(pdf, str(datos.email))
+            trace(f">> PDF guardado en: {pdf_path}")
+        except Exception as exc:
+            trace(f">> PDF no generado: {exc}")
+
     trace(">> Respondiendo al cliente")
 
     return JSONResponse(
@@ -150,5 +197,7 @@ async def auditar(request: Request):
             "status": "recibido",
             "email": str(datos.email),
             "diagnostico_generado": "error" not in diagnostico,
+            "pdf_generado": pdf_path is not None,
+            "pdf_path": pdf_path,
         }
     )

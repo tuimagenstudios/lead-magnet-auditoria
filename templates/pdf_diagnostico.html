@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Auditoría Digital</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 0;
+      background: #000 url("{{ background_path }}") center / cover no-repeat;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #ffffff;
+      background: #000;
+    }
+
+    .page {
+      width: 210mm;
+      height: 297mm;
+      page-break-after: always;
+      position: relative;
+      overflow: hidden;
+      background: #000 url("{{ background_path }}") center / cover no-repeat;
+      padding: 24mm 22mm;
+    }
+
+    .page:last-child {
+      page-break-after: auto;
+    }
+
+    .center {
+      text-align: center;
+    }
+
+    .muted {
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .cyan {
+      color: #00e0ff;
+    }
+
+    .logo {
+      display: block;
+      width: 70mm;
+      height: auto;
+      margin: 0 auto;
+    }
+
+    .cover-logo {
+      margin-top: 0;
+      margin-bottom: 24mm;
+    }
+
+    h1,
+    h2 {
+      margin: 0;
+      color: #00e0ff;
+      font-weight: 700;
+      line-height: 1.08;
+    }
+
+    h1 {
+      font-size: 48pt;
+      text-align: center;
+      text-shadow: 0 0 18px rgba(0, 224, 255, 0.45);
+    }
+
+    h2 {
+      font-size: 28pt;
+      margin-bottom: 5mm;
+    }
+
+    .cover-subtitle {
+      margin: 8mm auto 0;
+      max-width: 130mm;
+      font-size: 16pt;
+      line-height: 1.45;
+      text-align: center;
+    }
+
+    .cover-footer {
+      position: absolute;
+      left: 22mm;
+      right: 22mm;
+      bottom: 68mm;
+      text-align: center;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.92);
+    }
+
+    .prepared {
+      margin-bottom: 5mm;
+      font-size: 14pt;
+    }
+
+    .date {
+      font-size: 12pt;
+      color: #00e0ff;
+    }
+
+    .page-score {
+      padding-top: 26mm;
+      text-align: center;
+    }
+
+    .score {
+      margin: 18mm 0 0;
+      font-size: 120pt;
+      font-weight: 700;
+      line-height: 0.82;
+      color: #00e0ff;
+      text-shadow: 0 0 24px rgba(0, 224, 255, 0.68);
+    }
+
+    .score-total {
+      margin: 8mm 0 15mm;
+      font-size: 16pt;
+    }
+
+    .progress {
+      width: 70%;
+      height: 12px;
+      margin: 0 auto 18mm;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #1a1f3a;
+    }
+
+    .progress-fill {
+      width: {{ progreso }}%;
+      height: 100%;
+      border-radius: 999px;
+      background: #00e0ff;
+      box-shadow: 0 0 16px rgba(0, 224, 255, 0.7);
+    }
+
+    .summary {
+      width: 80%;
+      margin: 0 auto;
+      font-size: 14pt;
+      line-height: 1.65;
+      text-align: justify;
+    }
+
+    .subtitle {
+      margin: 0 0 18mm;
+      font-size: 14pt;
+    }
+
+    .cards {
+      margin-top: 10mm;
+    }
+
+    .strength-card {
+      margin-bottom: 16px;
+      padding: 20px;
+      border-left: 3px solid #00e0ff;
+      background: rgba(0, 224, 255, 0.05);
+      font-size: 14pt;
+      line-height: 1.6;
+    }
+
+    .spark {
+      color: #00e0ff;
+      font-weight: 700;
+      margin-right: 7px;
+    }
+
+    .opportunity {
+      position: relative;
+      margin-bottom: 10mm;
+      padding: 7mm 8mm;
+      border: 1px solid rgba(0, 224, 255, 0.28);
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .opportunity h3 {
+      max-width: 118mm;
+      margin: 0 0 5mm;
+      color: #00e0ff;
+      font-size: 16pt;
+      line-height: 1.25;
+    }
+
+    .opportunity p {
+      margin: 0;
+      font-size: 12pt;
+      line-height: 1.5;
+    }
+
+    .badge {
+      position: absolute;
+      top: 7mm;
+      right: 8mm;
+      min-width: 18mm;
+      padding: 2mm 4mm;
+      border-radius: 999px;
+      font-size: 8.5pt;
+      font-weight: 700;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .prioridad-alta {
+      color: #fff;
+      background: #ff4444;
+    }
+
+    .prioridad-media {
+      color: #fff;
+      background: #ffa500;
+    }
+
+    .prioridad-baja {
+      color: #001018;
+      background: #00ff88;
+    }
+
+    .strategic-mark {
+      margin: 22mm 0 10mm;
+      color: #00e0ff;
+      font-size: 26pt;
+      text-align: center;
+    }
+
+    .strategic-text {
+      width: 80%;
+      margin: 0 auto;
+      font-size: 16pt;
+      line-height: 1.8;
+      text-align: justify;
+    }
+
+    .service-card {
+      margin-bottom: 9mm;
+      padding: 24px;
+      border: 1px solid rgba(0, 224, 255, 0.45);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .service-name {
+      margin: 0 0 4mm;
+      color: #fff;
+      font-size: 18pt;
+      font-weight: 700;
+    }
+
+    .service-reason {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 13pt;
+      line-height: 1.55;
+    }
+
+    .cta {
+      display: block;
+      width: 50mm;
+      margin: 14mm auto 0;
+      padding: 4mm 0;
+      border: 1px solid #00e0ff;
+      color: #00e0ff;
+      font-size: 15pt;
+      font-weight: 700;
+      text-align: center;
+      text-decoration: none;
+      box-shadow: 0 0 18px rgba(0, 224, 255, 0.24);
+    }
+
+    .page-close {
+      padding-top: 42mm;
+      text-align: center;
+    }
+
+    .close-logo {
+      width: 78mm;
+      margin-bottom: 18mm;
+    }
+
+    .thanks {
+      margin: 0 0 18mm;
+      color: #00e0ff;
+      font-size: 22pt;
+      font-weight: 700;
+    }
+
+    .contact {
+      font-size: 15pt;
+      line-height: 2;
+    }
+
+    .contact-label {
+      color: #00e0ff;
+      font-weight: 700;
+    }
+
+    .legal {
+      position: absolute;
+      left: 22mm;
+      right: 22mm;
+      bottom: 34mm;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 10pt;
+      text-align: center;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+    }
+  </style>
+</head>
+<body>
+  <section class="page page-cover">
+    <img class="logo cover-logo" src="{{ logo_path }}" alt="Tuimagen Studio">
+    <h1>Auditoría Digital</h1>
+    <p class="cover-subtitle muted">Diagnóstico personalizado de tu presencia online</p>
+    <div class="cover-footer">
+      <div class="prepared">Preparado para {{ email }}</div>
+      <div class="date">{{ fecha }}</div>
+    </div>
+  </section>
+
+  <section class="page page-score">
+    <h2>Tu Puntaje Digital</h2>
+    <div class="score">{{ puntaje }}</div>
+    <div class="score-total muted">de 100</div>
+    <div class="progress" aria-hidden="true">
+      <div class="progress-fill" style="width: {{ progreso }}%"></div>
+    </div>
+    <p class="summary">{{ diagnostico.resumen_ejecutivo }}</p>
+  </section>
+
+  <section class="page">
+    <h2>Lo que estás haciendo bien</h2>
+    <p class="subtitle muted">Tus fortalezas digitales</p>
+    <div class="cards">
+      {% for fortaleza in diagnostico.fortalezas %}
+        <div class="strength-card"><span class="spark">✦</span>{{ fortaleza }}</div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="page">
+    <h2>Oportunidades de Crecimiento</h2>
+    <div class="cards">
+      {% for oportunidad in diagnostico.oportunidades %}
+        {% set prioridad = oportunidad.prioridad|default("media")|lower %}
+        <article class="opportunity">
+          <span class="badge prioridad-{{ prioridad }}">{{ prioridad }}</span>
+          <h3>{{ oportunidad.titulo }}</h3>
+          <p>{{ oportunidad.descripcion }}</p>
+        </article>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="page">
+    <h2>Diagnóstico Estratégico</h2>
+    <div class="strategic-mark">✦</div>
+    <p class="strategic-text">{{ diagnostico.diagnostico_estrategico }}</p>
+  </section>
+
+  <section class="page">
+    <h2>Cómo podemos ayudarte</h2>
+    <p class="subtitle muted">Servicios recomendados según tu diagnóstico</p>
+    <div class="cards">
+      {% for servicio in diagnostico.servicios_sugeridos %}
+        <article class="service-card">
+          <div class="service-name"><span class="spark">✦</span>{{ servicio.nombre }}</div>
+          <p class="service-reason"><strong>Por qué:</strong> {{ servicio.razon }}</p>
+        </article>
+      {% endfor %}
+    </div>
+    <a class="cta" href="https://tuimagenstudios.com/contacto">Hablemos →</a>
+  </section>
+
+  <section class="page page-close">
+    <img class="logo close-logo" src="{{ logo_path }}" alt="Tuimagen Studio">
+    <p class="thanks">Gracias por confiar en nosotros</p>
+    <div class="contact">
+      <div><span class="contact-label">Web</span> · tuimagenstudios.com</div>
+      <div><span class="contact-label">Email</span> · naty@tuimagenstudios.com</div>
+      <div><span class="contact-label">Instagram</span> · @tuimagen_studio</div>
+    </div>
+    <div class="legal">© 2026 Tuimagen Studio · Diseño, marketing e IA con alma</div>
+  </section>
+</body>
+</html>

@@ -1,7 +1,7 @@
 import asyncio
 import json
 import unittest
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 from fastapi import HTTPException
 
@@ -33,6 +33,8 @@ class AuditarEndpointTests(unittest.TestCase):
             patch("main.analizar_web", return_value={"status_code": 200}, create=True),
             patch("main.analizar_instagram", return_value={"analizado": True}, create=True),
             patch("main.generar_diagnostico", return_value={"puntaje_general": 72}, create=True),
+            patch("main.generar_pdf", return_value=b"%PDF-test", create=True),
+            patch("main.guardar_pdf_temporal", return_value="C:/tmp/auditoria_test.pdf", create=True),
             patch("main.print") as print_mock,
         ):
             asyncio.run(auditar(request))
@@ -47,9 +49,13 @@ class AuditarEndpointTests(unittest.TestCase):
             ">> Instagram OK",
             ">> Llamando a DeepSeek...",
             ">> Diagnóstico generado",
+            ">> Generando PDF...",
+            ">> PDF guardado en: C:/tmp/auditoria_test.pdf",
             ">> Respondiendo al cliente",
         ]:
             self.assertIn(esperado, trazas)
+
+        self.assertTrue(any(">> PDF generado:" in traza for traza in trazas))
 
     def test_auditar_incluye_preview_de_analisis(self):
         request = FakeRequest(
@@ -67,6 +73,8 @@ class AuditarEndpointTests(unittest.TestCase):
             patch("main.analizar_web", return_value={"status_code": 200}, create=True) as analizar_web,
             patch("main.analizar_instagram", return_value={"analizado": True}, create=True) as analizar_ig,
             patch("main.generar_diagnostico", return_value={"puntaje_general": 72}, create=True) as generar,
+            patch("main.generar_pdf", return_value=b"%PDF-test", create=True) as generar_pdf,
+            patch("main.guardar_pdf_temporal", return_value="C:/tmp/auditoria_test.pdf", create=True) as guardar_pdf,
         ):
             response = asyncio.run(auditar(request))
 
@@ -75,12 +83,16 @@ class AuditarEndpointTests(unittest.TestCase):
         self.assertEqual(body["status"], "recibido")
         self.assertEqual(body["email"], "test@test.com")
         self.assertTrue(body["diagnostico_generado"])
+        self.assertTrue(body["pdf_generado"])
+        self.assertEqual(body["pdf_path"], "C:/tmp/auditoria_test.pdf")
         self.assertNotIn("preview", body)
         analizar_web.assert_called_once_with("https://tuimagenstudios.com")
         analizar_ig.assert_called_once_with("@tuimagen_studio")
         generar.assert_called_once()
         self.assertEqual(generar.call_args.args[0]["datos_web"], {"status_code": 200})
         self.assertEqual(generar.call_args.args[0]["datos_ig"], {"analizado": True})
+        generar_pdf.assert_called_once_with({"puntaje_general": 72}, "test@test.com", ANY)
+        guardar_pdf.assert_called_once_with(b"%PDF-test", "test@test.com")
 
     def test_auditar_rechaza_si_faltan_preguntas_estrategicas(self):
         request = FakeRequest(
@@ -112,6 +124,8 @@ class AuditarEndpointTests(unittest.TestCase):
             patch("main.analizar_web", return_value={"status_code": 200}, create=True) as analizar_web,
             patch("main.analizar_instagram", return_value={"analizado": False}, create=True) as analizar_ig,
             patch("main.generar_diagnostico", return_value={"puntaje_general": 80}, create=True),
+            patch("main.generar_pdf", return_value=b"%PDF-test", create=True),
+            patch("main.guardar_pdf_temporal", return_value="C:/tmp/auditoria_test.pdf", create=True),
         ):
             response = asyncio.run(auditar(request))
 
@@ -138,6 +152,8 @@ class AuditarEndpointTests(unittest.TestCase):
             patch("main.analizar_web", return_value={"status_code": 200}, create=True) as analizar_web,
             patch("main.analizar_instagram", return_value={"analizado": True}, create=True) as analizar_ig,
             patch("main.generar_diagnostico", return_value={"puntaje_general": 67}, create=True),
+            patch("main.generar_pdf", return_value=b"%PDF-test", create=True),
+            patch("main.guardar_pdf_temporal", return_value="C:/tmp/auditoria_test.pdf", create=True),
         ):
             response = asyncio.run(auditar(request))
 
@@ -176,6 +192,7 @@ class AuditarEndpointTests(unittest.TestCase):
             patch("main.analizar_web", return_value={"status_code": 200}, create=True),
             patch("main.analizar_instagram", return_value={"analizado": False}, create=True),
             patch("main.generar_diagnostico", side_effect=RuntimeError("DeepSeek caido"), create=True),
+            patch("main.generar_pdf", return_value=b"%PDF-test", create=True) as generar_pdf,
         ):
             response = asyncio.run(auditar(request))
 
@@ -183,6 +200,8 @@ class AuditarEndpointTests(unittest.TestCase):
 
         self.assertEqual(body["status"], "recibido")
         self.assertFalse(body["diagnostico_generado"])
+        self.assertFalse(body["pdf_generado"])
+        generar_pdf.assert_not_called()
 
 
 if __name__ == "__main__":
